@@ -4,17 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>mmmv_filmes e séries</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
 <style>
   *{box-sizing:border-box}
   body{margin:0;font-family:system-ui,sans-serif;background:#0f1115;color:#eee}
   header{position:sticky;top:0;background:#171a21;padding:12px 16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;z-index:5}
   header h1{font-size:18px;margin:0 12px 0 0;line-height:0}
-  input,button,select{padding:8px 10px;border-radius:6px;border:1px solid #333;background:#222733;color:#eee;font-size:14px}
-  button{cursor:pointer;background:#e50914;border-color:#e50914}
+  input,button,select,textarea{padding:8px 10px;border-radius:6px;border:1px solid #333;background:#222733;color:#eee;font-size:14px;font-family:inherit}
+  button{cursor:pointer;background:#e50914;border-color:#e50914;color:#fff}
   button.sec{background:#222733;border-color:#333}
   button.on{background:#e50914;border-color:#e50914}
   main{padding:16px}
-  #msg{padding:8px 0;color:#f5a623}
+  #msg,#iptvMsg{padding:8px 0;color:#f5a623}
   #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px}
   .card{position:relative;background:#171a21;border-radius:8px;overflow:hidden;cursor:pointer;transition:transform .15s}
   .card:hover{transform:scale(1.04)}
@@ -25,14 +26,38 @@
   #modal{position:fixed;inset:0;background:#000c;display:none;align-items:center;justify-content:center;padding:16px;z-index:10}
   #box{background:#171a21;max-width:760px;width:100%;max-height:90vh;overflow:auto;border-radius:10px;padding:16px}
   #box h2{margin-top:0}
-  iframe{width:100%;aspect-ratio:16/9;border:0;border-radius:8px;margin-top:10px}
-  .ep{display:flex;gap:10px;padding:10px 0;border-top:1px solid #2a2f3a}
+  iframe{width:100%;aspect-ratio:16/9;border:0;border-radius:8px;margin-top:10px;background:#000}
+  .ep{display:flex;gap:10px;padding:10px 0;border-top:1px solid #2a2f3a;align-items:flex-start}
   .ep img{width:120px;aspect-ratio:16/9;object-fit:cover;border-radius:6px;background:#222;flex-shrink:0}
   .ep b{font-size:14px}
   .ep p{margin:4px 0 0;font-size:12px;color:#bbb}
+  .ep .playBtn{padding:6px 12px;font-size:12px;background:#e50914;border:none;border-radius:6px;color:#fff;cursor:pointer;font-weight:bold;}
   @media(max-width:480px){.ep img{width:90px}}
   .doar{margin-left:auto;padding:8px 12px;border-radius:6px;background:#7c3aed;color:#fff;text-decoration:none;font-size:14px;font-weight:600}
   .doar:hover{background:#6d28d9}
+
+  /* Abas */
+  .tabs{display:flex;gap:8px;margin-right:4px}
+  .tab{padding:8px 14px;border-radius:6px;background:#222733;border:1px solid #333;cursor:pointer;color:#eee;font-size:14px}
+  .tab.on{background:#e50914;border-color:#e50914}
+  #viewSeries,#viewIPTV{display:none}
+  #viewSeries.on,#viewIPTV.on{display:block}
+
+  /* IPTV */
+  .iptvBar{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;align-items:center}
+  .iptvBar input{flex:1;min-width:220px}
+  #iptvSearch{width:100%;max-width:400px;margin-bottom:12px}
+  #iptvCanais{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:12px}
+  .canal{background:#171a21;border-radius:8px;padding:10px;text-align:center;cursor:pointer;transition:transform .15s;position:relative}
+  .canal:hover{transform:scale(1.03)}
+  .canal img{width:80px;height:80px;object-fit:contain;background:#222;border-radius:6px;margin:0 auto;display:block}
+  .canal .nome{font-size:12px;margin-top:6px;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;min-height:2.6em}
+  .canal .del{position:absolute;top:4px;right:4px;width:22px;height:22px;padding:0;font-size:11px;background:#000a;border:none;border-radius:50%}
+  #iptvPlayer{position:fixed;inset:0;background:#000e;display:none;z-index:20;padding:16px;align-items:center;justify-content:center;flex-direction:column}
+  #iptvPlayer.on{display:flex}
+  #iptvPlayer video{max-width:100%;max-height:75vh;width:100%;background:#000;border-radius:8px}
+  #iptvPlayer .topBar{position:absolute;top:16px;left:16px;right:16px;display:flex;justify-content:space-between;align-items:center}
+  #iptvPlayer .info{font-size:14px;color:#eee;text-shadow:0 1px 3px #000}
 </style>
 </head>
 <body>
@@ -44,6 +69,12 @@
     <text x="50" y="27" font-family="Impact,'Arial Black',sans-serif" font-size="27" font-style="italic" fill="url(#lg)" stroke="#7a0a10" stroke-width="1" paint-order="stroke">MMMV</text>
     <text x="52" y="39" font-family="Arial,sans-serif" font-size="9.5" font-weight="700" letter-spacing="2.2" fill="#eee">FILMES E SÉRIES</text>
   </svg></h1>
+
+  <div class="tabs">
+    <button class="tab on" id="tabSeries" onclick="trocarAba('series')">🎬 Séries</button>
+    <button class="tab"    id="tabIPTV"   onclick="trocarAba('iptv')">📺 IPTV</button>
+  </div>
+
   <input id="q" placeholder="Buscar série..." onkeydown="if(event.key==='Enter')buscar()">
   <button onclick="buscar()">Buscar</button>
   <select id="genero" onchange="porGenero()"><option value="">Todos os gêneros</option></select>
@@ -53,38 +84,70 @@
 </header>
 
 <main>
-  <div id="msg"></div>
-  <div id="grid"></div>
+  <!-- ============== ABA SÉRIES ============== -->
+  <div id="viewSeries" class="on">
+    <div id="msg"></div>
+    <div id="grid"></div>
+  </div>
+
+  <!-- ============== ABA IPTV ============== -->
+  <div id="viewIPTV">
+    <div class="iptvBar">
+      <input id="m3uUrl" placeholder="URL da lista M3U (ex: https://iptv-org.github.io/iptv/index.m3u)">
+      <button onclick="carregarM3UUrl()">➕ Adicionar Lista</button>
+      <button class="sec" onclick="document.getElementById('m3uFile').click()">📁 Arquivo</button>
+      <input type="file" id="m3uFile" accept=".m3u,.m3u8,.txt" style="display:none" onchange="carregarM3UArquivo(event)">
+      <button class="sec" onclick="limparCanais()">🗑 Limpar Tudo</button>
+    </div>
+    <div id="iptvMsg"></div>
+    <input id="iptvSearch" placeholder="🔍 Filtrar canais..." oninput="renderCanais()">
+    <div id="iptvCanais"></div>
+  </div>
 </main>
 
+<!-- Modal de detalhes da série -->
 <div id="modal" onclick="if(event.target===this)fechar()">
   <div id="box"></div>
 </div>
 
-<script>
-// 🔴 ATENÇÃO: TROQUE O LINK ABAIXO PELO LINK DO SEU PROJETO NA VERCEL 🔴
-const API = "/api/tmdb";
+<!-- Player IPTV -->
+<div id="iptvPlayer" onclick="if(event.target===this)fecharPlayer()">
+  <div class="topBar">
+    <div class="info" id="playerInfo"></div>
+    <button class="close sec" onclick="fecharPlayer()">✕</button>
+  </div>
+  <video id="iptvVideo" controls playsinline></video>
+</div>
 
+<script>
+/* ================== CONFIGURAÇÃO E APIs ================== */
+const API = "https://mmmv-series-apy.vercel.app/api/tmdb"; 
 const IMG = "https://image.tmdb.org/t/p/w342";
 const STILL = "https://image.tmdb.org/t/p/w300";
+
+/* Mapeamento de provedores para o player de séries */
+const PROVIDERS = {
+  'vidsrc.cc': (id, s, e) => `https://vidsrc.cc/v2/embed/tv/${id}/${s}/${e}?poster=true&autoPlay=false`,
+  'vidsrc.to': (id, s, e) => `https://vidsrc.to/embed/tv/${id}/${s}/${e}`,
+  '2embed':    (id, s, e) => `https://www.2embed.cc/embedtv/${id}&s=${s}&e=${e}`,
+  'vidlink':   (id, s, e) => `https://vidlink.pro/tv/${id}/${s}/${e}`
+};
+
+/* ================== SÉRIES (TMDB) ================== */
 let favs = JSON.parse(localStorage.getItem("tmdb_favs") || "{}");
 let modoFav = false;
-let serieAtual = null;
-
 const $ = id => document.getElementById(id);
 const msg = t => $("msg").textContent = t || "";
 
 async function api(path, params=""){
   const endpoint = path.startsWith('/') ? path.slice(1) : path;
-  const extraParams = params.startsWith('&') ? params.slice(1) : params;
-  const url = `${API}?endpoint=${endpoint}${extraParams ? '&' + extraParams : ''}`;
-
+  const extra = params.startsWith('&') ? params.slice(1) : params;
+  const url = `${API}?endpoint=${endpoint}${extra ? '&' + extra : ''}`;
   const r = await fetch(url);
   if(!r.ok) throw new Error("Erro na requisição ("+r.status+")");
   return r.json();
 }
 
-/* ---------- Favoritos ---------- */
 function salvarFavs(){ localStorage.setItem("tmdb_favs", JSON.stringify(favs)); }
 function alternarFav(id, ev){
   if(ev) ev.stopPropagation();
@@ -102,7 +165,6 @@ function atualizarCoracoes(){
   document.querySelectorAll(".fav").forEach(b => b.textContent = favs[b.dataset.id] ? "❤" : "🤍");
 }
 
-/* ---------- Lista ---------- */
 window._cache = {};
 function mostrar(lista){
   lista.forEach(s => window._cache[s.id] = s);
@@ -122,7 +184,6 @@ async function popular(){
   try{ msg("Carregando..."); const d = await api("/tv/popular"); msg(); mostrar(d.results); }
   catch(e){ msg(e.message); }
 }
-
 async function buscar(){
   modoFav = false; marcarFavBtn(); $("genero").value = "";
   const q = $("q").value.trim();
@@ -130,7 +191,6 @@ async function buscar(){
   try{ msg("Buscando..."); const d = await api("/search/tv","&query="+encodeURIComponent(q)); msg(); mostrar(d.results); }
   catch(e){ msg(e.message); }
 }
-
 async function porGenero(){
   const g = $("genero").value;
   if(!g) return popular();
@@ -138,7 +198,6 @@ async function porGenero(){
   try{ msg("Carregando..."); const d = await api("/discover/tv","&sort_by=popularity.desc&with_genres="+g); msg(); mostrar(d.results); }
   catch(e){ msg(e.message); }
 }
-
 function verFavoritos(){
   modoFav = true; marcarFavBtn();
   const lista = Object.values(favs);
@@ -146,7 +205,6 @@ function verFavoritos(){
   mostrar(lista);
   if(!lista.length) $("grid").innerHTML = "";
 }
-
 async function carregarGeneros(){
   try{
     const d = await api("/genre/tv/list");
@@ -154,12 +212,11 @@ async function carregarGeneros(){
   }catch(e){}
 }
 
-/* ---------- Detalhes ---------- */
+/* ---------- Detalhes + Episódios ---------- */
 async function detalhes(id){
   try{
     const s = await api("/tv/"+id,"&append_to_response=videos");
     window._cache[id] = window._cache[id] || s;
-    serieAtual = s;
     let vids = s.videos.results;
     const yt = vids.find(v=>v.site==="YouTube" && v.type==="Trailer") || vids.find(v=>v.site==="YouTube");
     const temporadas = (s.seasons||[]).filter(t=>t.season_number>0);
@@ -169,10 +226,11 @@ async function detalhes(id){
       <p><small>${s.number_of_seasons} temporada(s) · ${s.number_of_episodes} episódios · ${(s.genres||[]).map(g=>g.name).join(", ")}</small></p>
       <p><button id="favModal" class="sec" onclick="alternarFav(${id})">${favs[id]?"❤ Nos favoritos":"🤍 Favoritar"}</button></p>
       <p>${s.overview || "Sem sinopse em português."}</p>
-      ${yt ? `<iframe src="https://www.youtube.com/embed/${yt.key}" allowfullscreen></iframe>` : "<p><small>Sem trailer disponível.</small></p>"}
+      <iframe id="trailerIframe" ${yt ? `src="https://www.youtube.com/embed/${yt.key}"` : `style="display:none"`} allowfullscreen></iframe>
+      <p id="semTrailer" ${yt ? 'style="display:none"' : ''}><small>Sem trailer. Use o ▶ em um episódio para assistir.</small></p>
       ${temporadas.length ? `
         <h3>Episódios</h3>
-        <select id="temp" onchange="carregarEpisodios(${id}, this.value)">
+        <select id="temp" onchange="carregarEpisodios(${id}, this.value)" style="margin-bottom:12px; width:100%; max-width:200px;">
           ${temporadas.map(t=>`<option value="${t.season_number}">${t.name}</option>`).join("")}
         </select>
         <div id="eps"></div>` : ""}`;
@@ -192,9 +250,34 @@ async function carregarEpisodios(id, n){
           <b>${e.episode_number}. ${e.name}</b>
           <small style="color:#aaa"> ${e.air_date ? "· "+e.air_date.split("-").reverse().join("/") : ""} ${e.runtime ? "· "+e.runtime+" min" : ""}</small>
           <p>${e.overview || "Sem sinopse."}</p>
+          
+          <!-- SELETOR DE PROVEDOR E BOTÃO DE PLAY -->
+          <div style="margin-top:8px; display:flex; gap:8px; align-items:center; flex-wrap:wrap;">
+            <select id="provider-${e.episode_number}" class="sec" style="padding:6px; font-size:12px; width:auto; flex:1; max-width:140px;">
+              <option value="vidsrc.cc">VidSrc (CC)</option>
+              <option value="vidsrc.to">VidSrc (TO)</option>
+              <option value="2embed">2Embed</option>
+              <option value="vidlink">VidLink</option>
+            </select>
+            <button class="playBtn" style="flex:1; max-width:100px;" onclick="assistirEpisodioComProvider(${id}, ${n}, ${e.episode_number})">▶ Assistir</button>
+          </div>
+          
         </div>
       </div>`).join("") || "<p><small>Sem episódios cadastrados.</small></p>";
   }catch(err){ $("eps").innerHTML = `<p>${err.message}</p>`; }
+}
+
+/* Substitui o trailer pelo player de embed escolhido */
+function assistirEpisodioComProvider(tmdbId, season, ep) {
+  const select = document.getElementById(`provider-${ep}`);
+  const providerKey = select ? select.value : 'vidsrc.cc';
+  
+  const iframe = document.getElementById('trailerIframe');
+  if(!iframe) return;
+  
+  iframe.style.display = 'block';
+  iframe.src = PROVIDERS[providerKey](tmdbId, season, ep);
+  iframe.scrollIntoView({behavior:'smooth', block:'center'});
 }
 
 function fechar(){
@@ -202,9 +285,186 @@ function fechar(){
   if(modoFav) verFavoritos(); else atualizarCoracoes();
 }
 
-// Inicia direto, sem precisar de chave!
-iniciar();
+/* ================== ABAS ================== */
+function trocarAba(aba){
+  $('tabSeries').classList.toggle('on', aba==='series');
+  $('tabIPTV').classList.toggle('on',   aba==='iptv');
+  $('viewSeries').classList.toggle('on', aba==='series');
+  $('viewIPTV').classList.toggle('on',   aba==='iptv');
+  if(aba==='iptv') renderCanais();
+}
 
+/* ================== IPTV ================== */
+let canais = JSON.parse(localStorage.getItem('mmmv_iptv') || '[]');
+let hlsPlayer = null;
+
+function parseM3U(text){
+  const lines = text.split(/\r?\n/);
+  const out = [];
+  let cur = null;
+  for(const raw of lines){
+    const t = raw.trim();
+    if(!t) continue;
+    if(t.startsWith('#EXTINF:')){
+      const info = t.slice(8);
+      const attrs = {};
+      const re = /(\w[\w-]*)="([^"]*)"/g;
+      let m;
+      while((m = re.exec(info))) attrs[m[1]] = m[2];
+      const nameMatch = info.match(/,(.+)$/);
+      cur = {
+        name: nameMatch ? nameMatch[1].trim() : (attrs['tvg-name'] || 'Sem nome'),
+        logo: attrs['tvg-logo'] || '',
+        group: attrs['group-title'] || 'Outros',
+        url: ''
+      };
+    } else if(t.startsWith('#')){
+      continue;
+    } else if(cur){
+      cur.url = t;
+      if(/^https?:\/\//i.test(cur.url)) out.push(cur);
+      cur = null;
+    }
+  }
+  return out;
+}
+
+function salvarCanais(){ localStorage.setItem('mmmv_iptv', JSON.stringify(canais)); }
+
+function addCanais(novos){
+  const existentes = new Set(canais.map(c => c.url));
+  let add = 0;
+  for(const c of novos){
+    if(!existentes.has(c.url)){ canais.push(c); existentes.add(c.url); add++; }
+  }
+  salvarCanais();
+  return add;
+}
+
+async function carregarM3UUrl(){
+  const url = $('m3uUrl').value.trim();
+  if(!url){ alert('Cole uma URL M3U'); return; }
+  const M = $('iptvMsg');
+  M.textContent = 'Baixando lista...';
+  try{
+    let text;
+    try{
+      const r = await fetch(url);
+      if(!r.ok) throw new Error('HTTP '+r.status);
+      text = await r.text();
+    }catch(e){
+      M.textContent = 'Tentando via proxy (CORS)...';
+      const r2 = await fetch('https://api.allorigins.win/raw?url=' + encodeURIComponent(url));
+      text = await r2.text();
+    }
+    const novos = parseM3U(text);
+    if(!novos.length) throw new Error('Nenhum canal encontrado na lista');
+    const add = addCanais(novos);
+    M.textContent = `✅ ${add} canais adicionados (${canais.length} no total)`;
+    $('m3uUrl').value = '';
+    renderCanais();
+  }catch(e){
+    M.textContent = '❌ Erro: ' + e.message;
+  }
+}
+
+function carregarM3UArquivo(ev){
+  const file = ev.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    try{
+      const novos = parseM3U(reader.result);
+      const add = addCanais(novos);
+      $('iptvMsg').textContent = `✅ ${add} canais adicionados (${canais.length} no total)`;
+      renderCanais();
+    }catch(e){
+      $('iptvMsg').textContent = '❌ Erro: ' + e.message;
+    }
+  };
+  reader.readAsText(file);
+  ev.target.value = '';
+}
+
+function limparCanais(){
+  if(!confirm('Remover TODOS os canais?')) return;
+  canais = [];
+  salvarCanais();
+  renderCanais();
+  $('iptvMsg').textContent = 'Lista limpa.';
+}
+
+function renderCanais(){
+  const termo = ($('iptvSearch').value || '').toLowerCase();
+  const lista = canais.filter(c =>
+    !termo ||
+    c.name.toLowerCase().includes(termo) ||
+    c.group.toLowerCase().includes(termo)
+  );
+  const grid = $('iptvCanais');
+  if(!lista.length){
+    grid.innerHTML = canais.length
+      ? '<p style="color:#999">Nenhum canal corresponde ao filtro.</p>'
+      : '<p style="color:#999">Nenhuma lista carregada. Adicione uma URL M3U ou um arquivo.</p>';
+    return;
+  }
+  grid.innerHTML = lista.map(c => {
+    const b64 = btoa(c.url);
+    const nomeEsc = c.name.replace(/'/g, "\\'");
+    return `
+      <div class="canal" onclick="tocarCanal('${b64}','${nomeEsc}')">
+        <button class="del" onclick="event.stopPropagation();removerCanal('${b64}')">✕</button>
+        ${c.logo ? `<img src="${c.logo}" alt="" onerror="this.style.display='none'">` : `<div style="width:80px;height:80px;background:#222;border-radius:6px;margin:0 auto"></div>`}
+        <div class="nome">${c.name}</div>
+        <small style="color:#888">${c.group}</small>
+      </div>`;
+  }).join('');
+}
+
+function removerCanal(b64url){
+  const url = atob(b64url);
+  canais = canais.filter(c => c.url !== url);
+  salvarCanais();
+  renderCanais();
+}
+
+function tocarCanal(b64url, nome){
+  const url = atob(b64url);
+  const video = $('iptvVideo');
+  $('iptvPlayer').classList.add('on');
+  $('playerInfo').textContent = '📺 ' + nome;
+
+  if(hlsPlayer){ hlsPlayer.destroy(); hlsPlayer = null; }
+  video.pause();
+  video.removeAttribute('src');
+  video.load();
+
+  const isHls = /\.m3u8(\?|$)/i.test(url);
+  if(isHls && window.Hls && Hls.isSupported()){
+    hlsPlayer = new Hls({ lowLatencyMode: false });
+    hlsPlayer.loadSource(url);
+    hlsPlayer.attachMedia(video);
+    hlsPlayer.on(Hls.Events.MANIFEST_PARSED, () => video.play().catch(()=>{}));
+    hlsPlayer.on(Hls.Events.ERROR, (_, d) => {
+      if(d.fatal) console.warn('HLS erro fatal:', d.type, d.details);
+    });
+  } else {
+    video.src = url;
+    video.play().catch(()=>{});
+  }
+}
+
+function fecharPlayer(){
+  const video = $('iptvVideo');
+  if(hlsPlayer){ hlsPlayer.destroy(); hlsPlayer = null; }
+  video.pause();
+  video.removeAttribute('src');
+  video.load();
+  $('iptvPlayer').classList.remove('on');
+}
+
+/* ================== INICIAR ================== */
+iniciar();
 function iniciar(){ carregarGeneros(); popular(); }
 </script>
 </body>
