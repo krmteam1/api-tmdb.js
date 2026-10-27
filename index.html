@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>mmmv_filmes e séries</title>
+<style>
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,sans-serif;background:#0f1115;color:#eee}
+  header{position:sticky;top:0;background:#171a21;padding:12px 16px;display:flex;gap:8px;flex-wrap:wrap;align-items:center;z-index:5}
+  header h1{font-size:18px;margin:0 12px 0 0;line-height:0}
+  input,button,select{padding:8px 10px;border-radius:6px;border:1px solid #333;background:#222733;color:#eee;font-size:14px}
+  button{cursor:pointer;background:#e50914;border-color:#e50914}
+  button.sec{background:#222733;border-color:#333}
+  button.on{background:#e50914;border-color:#e50914}
+  main{padding:16px}
+  #msg{padding:8px 0;color:#f5a623}
+  #grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:14px}
+  .card{position:relative;background:#171a21;border-radius:8px;overflow:hidden;cursor:pointer;transition:transform .15s}
+  .card:hover{transform:scale(1.04)}
+  .card img{width:100%;aspect-ratio:2/3;object-fit:cover;display:block;background:#222}
+  .card div.t{padding:8px;font-size:13px}
+  .card small{color:#aaa}
+  .fav{position:absolute;top:6px;right:6px;width:32px;height:32px;padding:0;border-radius:50%;background:#000a;border:none;font-size:16px}
+  #modal{position:fixed;inset:0;background:#000c;display:none;align-items:center;justify-content:center;padding:16px;z-index:10}
+  #box{background:#171a21;max-width:760px;width:100%;max-height:90vh;overflow:auto;border-radius:10px;padding:16px}
+  #box h2{margin-top:0}
+  iframe{width:100%;aspect-ratio:16/9;border:0;border-radius:8px;margin-top:10px}
+  .ep{display:flex;gap:10px;padding:10px 0;border-top:1px solid #2a2f3a}
+  .ep img{width:120px;aspect-ratio:16/9;object-fit:cover;border-radius:6px;background:#222;flex-shrink:0}
+  .ep b{font-size:14px}
+  .ep p{margin:4px 0 0;font-size:12px;color:#bbb}
+  @media(max-width:480px){.ep img{width:90px}}
+  .doar{margin-left:auto;padding:8px 12px;border-radius:6px;background:#7c3aed;color:#fff;text-decoration:none;font-size:14px;font-weight:600}
+  .doar:hover{background:#6d28d9}
+</style>
+</head>
+<body>
+<header>
+  <h1 class="logo"><svg viewBox="0 0 185 44" height="40" role="img" aria-label="mmmv_filmes e séries">
+    <defs><linearGradient id="lg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffe066"/><stop offset="1" stop-color="#ff9800"/></linearGradient></defs>
+    <rect x="1" y="4" width="40" height="36" rx="9" fill="#e50914"/>
+    <path d="M15 13 L31 22 L15 31 Z" fill="#fff"/>
+    <text x="50" y="27" font-family="Impact,'Arial Black',sans-serif" font-size="27" font-style="italic" fill="url(#lg)" stroke="#7a0a10" stroke-width="1" paint-order="stroke">MMMV</text>
+    <text x="52" y="39" font-family="Arial,sans-serif" font-size="9.5" font-weight="700" letter-spacing="2.2" fill="#eee">FILMES E SÉRIES</text>
+  </svg></h1>
+  <input id="q" placeholder="Buscar série..." onkeydown="if(event.key==='Enter')buscar()">
+  <button onclick="buscar()">Buscar</button>
+  <select id="genero" onchange="porGenero()"><option value="">Todos os gêneros</option></select>
+  <button class="sec" onclick="popular()">Populares</button>
+  <button class="sec" id="btnFav" onclick="verFavoritos()">❤ Favoritos</button>
+  <a class="doar" href="https://livepix.gg/tvkrm" target="_blank" rel="noopener">💜 Doar</a>
+</header>
+
+<main>
+  <div id="msg"></div>
+  <div id="grid"></div>
+</main>
+
+<div id="modal" onclick="if(event.target===this)fechar()">
+  <div id="box"></div>
+</div>
+
+<script>
+// 🔴 ATENÇÃO: TROQUE O LINK ABAIXO PELO LINK DO SEU PROJETO NA VERCEL 🔴
+const API = "https://mmmv-series-3i45ityh0-krmteam1.vercel.app/api/tmdb"; 
+
+const IMG = "https://image.tmdb.org/t/p/w342";
+const STILL = "https://image.tmdb.org/t/p/w300";
+let favs = JSON.parse(localStorage.getItem("tmdb_favs") || "{}");
+let modoFav = false;
+let serieAtual = null;
+
+const $ = id => document.getElementById(id);
+const msg = t => $("msg").textContent = t || "";
+
+async function api(path, params=""){
+  const endpoint = path.startsWith('/') ? path.slice(1) : path;
+  const extraParams = params.startsWith('&') ? params.slice(1) : params;
+  const url = `${API}?endpoint=${endpoint}${extraParams ? '&' + extraParams : ''}`;
+
+  const r = await fetch(url);
+  if(!r.ok) throw new Error("Erro na requisição ("+r.status+")");
+  return r.json();
+}
+
+/* ---------- Favoritos ---------- */
+function salvarFavs(){ localStorage.setItem("tmdb_favs", JSON.stringify(favs)); }
+function alternarFav(id, ev){
+  if(ev) ev.stopPropagation();
+  if(favs[id]) delete favs[id];
+  else {
+    const s = window._cache[id];
+    if(!s) return;
+    favs[id] = {id:s.id, name:s.name, poster_path:s.poster_path, vote_average:s.vote_average, first_air_date:s.first_air_date};
+  }
+  salvarFavs();
+  if(modoFav) verFavoritos(); else atualizarCoracoes();
+  const b = $("favModal"); if(b) b.textContent = favs[id] ? "❤ Nos favoritos" : "🤍 Favoritar";
+}
+function atualizarCoracoes(){
+  document.querySelectorAll(".fav").forEach(b => b.textContent = favs[b.dataset.id] ? "❤" : "🤍");
+}
+
+/* ---------- Lista ---------- */
+window._cache = {};
+function mostrar(lista){
+  lista.forEach(s => window._cache[s.id] = s);
+  $("grid").innerHTML = lista.map(s => `
+    <div class="card" onclick="detalhes(${s.id})">
+      <button class="fav" data-id="${s.id}" onclick="alternarFav(${s.id},event)">${favs[s.id]?"❤":"🤍"}</button>
+      <img loading="lazy" src="${s.poster_path ? IMG+s.poster_path : ''}" alt="">
+      <div class="t">${s.name}<br><small>⭐ ${s.vote_average?.toFixed(1) ?? "-"} · ${(s.first_air_date||"").slice(0,4)}</small></div>
+    </div>`).join("");
+  if(!lista.length) msg("Nada encontrado.");
+}
+
+function marcarFavBtn(){ $("btnFav").classList.toggle("on", modoFav); }
+
+async function popular(){
+  modoFav = false; marcarFavBtn(); $("genero").value = ""; $("q").value = "";
+  try{ msg("Carregando..."); const d = await api("/tv/popular"); msg(); mostrar(d.results); }
+  catch(e){ msg(e.message); }
+}
+
+async function buscar(){
+  modoFav = false; marcarFavBtn(); $("genero").value = "";
+  const q = $("q").value.trim();
+  if(!q) return popular();
+  try{ msg("Buscando..."); const d = await api("/search/tv","&query="+encodeURIComponent(q)); msg(); mostrar(d.results); }
+  catch(e){ msg(e.message); }
+}
+
+async function porGenero(){
+  const g = $("genero").value;
+  if(!g) return popular();
+  modoFav = false; marcarFavBtn(); $("q").value = "";
+  try{ msg("Carregando..."); const d = await api("/discover/tv","&sort_by=popularity.desc&with_genres="+g); msg(); mostrar(d.results); }
+  catch(e){ msg(e.message); }
+}
+
+function verFavoritos(){
+  modoFav = true; marcarFavBtn();
+  const lista = Object.values(favs);
+  msg(lista.length ? "" : "Você ainda não favoritou nenhuma série.");
+  mostrar(lista);
+  if(!lista.length) $("grid").innerHTML = "";
+}
+
+async function carregarGeneros(){
+  try{
+    const d = await api("/genre/tv/list");
+    $("genero").innerHTML += d.genres.map(g=>`<option value="${g.id}">${g.name}</option>`).join("");
+  }catch(e){}
+}
+
+/* ---------- Detalhes ---------- */
+async function detalhes(id){
+  try{
+    const s = await api("/tv/"+id,"&append_to_response=videos");
+    window._cache[id] = window._cache[id] || s;
+    serieAtual = s;
+    let vids = s.videos.results;
+    const yt = vids.find(v=>v.site==="YouTube" && v.type==="Trailer") || vids.find(v=>v.site==="YouTube");
+    const temporadas = (s.seasons||[]).filter(t=>t.season_number>0);
+    $("box").innerHTML = `
+      <button class="sec" style="float:right" onclick="fechar()">✕</button>
+      <h2>${s.name}</h2>
+      <p><small>${s.number_of_seasons} temporada(s) · ${s.number_of_episodes} episódios · ${(s.genres||[]).map(g=>g.name).join(", ")}</small></p>
+      <p><button id="favModal" class="sec" onclick="alternarFav(${id})">${favs[id]?"❤ Nos favoritos":"🤍 Favoritar"}</button></p>
+      <p>${s.overview || "Sem sinopse em português."}</p>
+      ${yt ? `<iframe src="https://www.youtube.com/embed/${yt.key}" allowfullscreen></iframe>` : "<p><small>Sem trailer disponível.</small></p>"}
+      ${temporadas.length ? `
+        <h3>Episódios</h3>
+        <select id="temp" onchange="carregarEpisodios(${id}, this.value)">
+          ${temporadas.map(t=>`<option value="${t.season_number}">${t.name}</option>`).join("")}
+        </select>
+        <div id="eps"></div>` : ""}`;
+    $("modal").style.display="flex";
+    if(temporadas.length) carregarEpisodios(id, temporadas[0].season_number);
+  }catch(e){ msg(e.message); }
+}
+
+async function carregarEpisodios(id, n){
+  $("eps").innerHTML = "<p><small>Carregando episódios...</small></p>";
+  try{
+    const t = await api(`/tv/${id}/season/${n}`);
+    $("eps").innerHTML = t.episodes.map(e => `
+      <div class="ep">
+        ${e.still_path ? `<img loading="lazy" src="${STILL+e.still_path}" alt="">` : `<img alt="">`}
+        <div>
+          <b>${e.episode_number}. ${e.name}</b>
+          <small style="color:#aaa"> ${e.air_date ? "· "+e.air_date.split("-").reverse().join("/") : ""} ${e.runtime ? "· "+e.runtime+" min" : ""}</small>
+          <p>${e.overview || "Sem sinopse."}</p>
+        </div>
+      </div>`).join("") || "<p><small>Sem episódios cadastrados.</small></p>";
+  }catch(err){ $("eps").innerHTML = `<p>${err.message}</p>`; }
+}
+
+function fechar(){
+  $("modal").style.display="none"; $("box").innerHTML="";
+  if(modoFav) verFavoritos(); else atualizarCoracoes();
+}
+
+// Inicia direto, sem precisar de chave!
+iniciar();
+
+function iniciar(){ carregarGeneros(); popular(); }
+</script>
+</body>
+</html>
